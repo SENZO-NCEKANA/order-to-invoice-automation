@@ -96,6 +96,10 @@ The second is the one that is easy to miss. Deduplicating on the message alone c
 
 Gmail trigger, 32 nodes.
 
+![Order intake and validation pipeline](docs/screenshots/wf1-order-intake.png)
+
+*Left to right: intake and deduplication, then the archive branch forking below. The extraction fork sits centre — the upper path handles native PDFs, the lower path rasterises scanned documents through the host converter before the vision call. Both rejoin at reconciliation. The review branch drops below the main line at the validation gate and rejoins the same registration path, so a corrected order and a clean one are written by identical nodes.*
+
 | Stage | Behaviour |
 |---|---|
 | **Intake** | Poll the `orders/inbox` label for PDF attachments. Check `gmail_message_id` against `Orders` **before** downloading or invoking the model — duplicates cost one lookup, not one inference. |
@@ -110,6 +114,10 @@ Gmail trigger, 32 nodes.
 ## Pipeline 2 — Invoice & Approval
 
 Schedule trigger, 23 nodes.
+
+![Invoice and approval pipeline](docs/screenshots/wf2-invoice-approval.png)
+
+*A single linear chain, deliberately. Invoice numbering sits at the centre — reserved and written to the order before the template is copied, so a failure downstream cannot produce a second number. The approval gate near the end splits to the approved and rejected paths, which converge on one audit node before the working copy is deleted and the loop returns to the batch node for the next order.*
 
 | Stage | Behaviour |
 |---|---|
