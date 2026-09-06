@@ -1,0 +1,14 @@
+{
+  "_comment": "Copy to sanitise-map.json and replace with your own values. That file is gitignored. Left side is what appears in your n8n export; right side is the placeholder published in its place.",
+
+  "YOUR_REAL_SPREADSHEET_ID_HERE": "YOUR_SPREADSHEET_ID",
+  "YOUR_REAL_INVOICE_TEMPLATE_ID_HERE": "YOUR_INVOICE_TEMPLATE_ID",
+
+  "000000001": "ORDERS_GID",
+  "000000002": "ORDER_LINES_GID",
+  "000000003": "NEEDS_REVIEW_GID",
+  "000000004": "AUDIT_LOG_GID",
+  "000000005": "CONFIG_GID",
+
+  "your.address@example.com": "you@example.com"
+}

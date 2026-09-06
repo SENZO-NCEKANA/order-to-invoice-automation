@@ -1,0 +1,1 @@
+order_id,gmail_message_id,po_number,order_date,required_by,customer_code,customer_name,customer_vat,customer_email,currency,subtotal_excl_vat,vat_amount,total_incl_vat,printed_total,status,source_pdf_url,extraction_method,confidence,review_reasons,invoice_number,invoice_pdf_url,approved_by,approved_at,created_at,updated_at

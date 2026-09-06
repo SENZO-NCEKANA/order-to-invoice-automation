@@ -1,0 +1,7 @@
+key,value
+invoice_prefix,INV
+invoice_year,2026
+invoice_counter,0
+vat_rate,0.15
+currency,ZAR
+dry_run,TRUE

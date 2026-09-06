@@ -1,0 +1,11 @@
+customer_code,company_name,vat_number,registration_number,contact_name,email,phone,address,city,payment_terms
+KPW,Kalahari Print Works (Pty) Ltd,4290117845,2015/221904/07,Lerato Mokoena,lerato.mokoena@example.com,+27 51 447 2210,"14 Zastron Street, Westdene","Bloemfontein, 9301",30 days
+UCT,Umhlanga Coastal Traders CC,4310558102,2011/094433/23,Riaan Pillay,riaan.pillay@example.com,+27 31 561 8890,"8 Lagoon Drive, Umhlanga Rocks","Durban, 4320",30 days
+SMH,Sandton Media House (Pty) Ltd,4150903377,2018/337712/07,Thandi Nkosi,thandi.nkosi@example.com,+27 11 883 4471,"5th Floor, Rivonia Grove, 22 Rivonia Road","Sandton, 2196",14 days
+GLG,Gqeberha Logistics Group (Pty) Ltd,4220671399,2013/118220/07,Sipho Dlamini,sipho.dlamini@example.com,+27 41 398 1120,"Harbour View Business Park, Kempston Road","Gqeberha, 6001",45 days
+TBM,Table Bay Marine Services (Pty) Ltd,4270448861,2016/551208/07,Elmarie van Wyk,elmarie.vanwyk@example.com,+27 21 419 7734,"Quay 5, Victoria & Alfred Waterfront","Cape Town, 8001",30 days
+KAS,Karoo Agri Solutions (Pty) Ltd,4300229517,2012/406651/07,Pieter Grobler,pieter.grobler@example.com,+27 23 415 3302,"Plot 6, Nelspoort Road","Beaufort West, 6970",30 days
+HFM,Highveld Facilities Management (Pty) Ltd,4180774623,2017/229815/07,Nomsa Radebe,nomsa.radebe@example.com,+27 12 663 9915,"Block C, Highveld Techno Park, 1 Regency Drive","Centurion, 0157",30 days
+VSF,Vaal Steel Fabricators CC,4240336708,2009/077410/23,Johan Meyer,johan.meyer@example.com,+27 16 421 5567,"18 Barrage Road, Duncanville","Vereeniging, 1930",30 days
+CGE,Cederberg Guest Estates (Pty) Ltd,4260910244,2014/662180/07,Anele Booysen,anele.booysen@example.com,+27 27 482 2140,R364 Pakhuis Pass Road,"Clanwilliam, 8135",14 days
+MLT,Mbombela Light Industrial (Pty) Ltd,4200558931,2020/114772/07,Kagiso Sithole,kagiso.sithole@example.com,+27 13 752 6680,"7 Rothery Street, Riverside Industrial","Mbombela, 1200",30 days

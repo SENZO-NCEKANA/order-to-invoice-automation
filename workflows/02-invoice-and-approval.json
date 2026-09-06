@@ -1,0 +1,2138 @@
+{
+  "name": "02 · Invoice & Approval",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        -160
+      ],
+      "id": "09d6f017-3604-4ab5-971f-6e8458ed12f5",
+      "name": "01 · Every 15 minutes"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "475a5fa5-afb3-4d84-9038-1de866ded2fc",
+              "name": "spreadsheetId",
+              "value": "YOUR_SPREADSHEET_ID",
+              "type": "string"
+            },
+            {
+              "id": "58cafee7-d8fb-4194-8cec-a85c81b14e02",
+              "name": "templateId",
+              "value": "YOUR_INVOICE_TEMPLATE_ID",
+              "type": "string"
+            },
+            {
+              "id": "1d5d1326-f907-4d35-8899-dede30cfcf17",
+              "name": "vatRate",
+              "value": 0.15,
+              "type": "number"
+            },
+            {
+              "id": "ac30bcd0-9a1d-4fb7-88d6-f62aee9b41ed",
+              "name": "currency",
+              "value": "ZAR",
+              "type": "string"
+            },
+            {
+              "id": "07ce8862-e523-4dbd-84c5-aeb331e1995c",
+              "name": "dryRun",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "7ae48862-a76a-42e8-b384-e5f457eaf650",
+              "name": "reviewerEmail",
+              "value": "you@example.com",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        -160
+      ],
+      "id": "f9d429fc-0349-4aca-a4cb-2e2dbb8d18ff",
+      "name": "02 · Config"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ORDERS_GID",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        448,
+        -160
+      ],
+      "id": "cbe55230-c6ea-4152-a7b8-b79c31e31034",
+      "name": "03 · Find completed orders",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "04841c17-33ad-4d9b-bb52-c3c0f965b34c",
+              "leftValue": "={{ ($json.invoice_pdf_url || '').toString() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        -160
+      ],
+      "id": "e1983b3f-d872-4f01-a71f-08be56f544ed",
+      "name": "04 · Needs an invoice?"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        896,
+        -160
+      ],
+      "id": "14b0ac80-64ce-4bbd-a3d7-5ace382c40e7",
+      "name": "05 · One at a time"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ORDER_LINES_GID",
+          "mode": "id"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "order_id",
+              "lookupValue": "={{ $json.order_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1120,
+        -240
+      ],
+      "id": "40461e9a-44d6-4fd2-82ba-d44576051cfb",
+      "name": "06 · Get order lines",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 07 · Assemble the invoice from the stored order lines, and recompute the\n// money from scratch. WF1 already validated these numbers - we verify anyway,\n// because the sheet is editable by humans between the two workflows.\nconst cfg   = $('02 · Config').first().json;\nconst order = $('05 · One at a time').first().json;\n\nconst round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;\n\nconst lines = $input.all()\n  .map((i) => i.json)\n  .filter((l) => String(l.order_id) === String(order.order_id))\n  .sort((a, b) => Number(a.line_no) - Number(b.line_no))\n  .map((l) => {\n    const qty  = Number(l.qty) || 0;\n    const unit = round2(l.unit_price_excl_vat);\n    return {\n      line_no:     Number(l.line_no),\n      sku:         l.sku,\n      description: l.description,\n      qty,\n      unit_price:  unit,\n      line_total:  round2(qty * unit),\n    };\n  });\n\nif (lines.length === 0) {\n  throw new Error(`No line items found for ${order.order_id} - cannot invoice an empty order`);\n}\n\nconst subtotal = round2(lines.reduce((s, l) => s + l.line_total, 0));\nconst vat      = round2(subtotal * Number(cfg.vatRate));\nconst total    = round2(subtotal + vat);\n\n// Cross-check against what WF1 registered.\nconst registered = Number(order.total_incl_vat);\nconst drift = Number.isFinite(registered) ? round2(total - registered) : null;\n\nreturn [{\n  json: {\n    order_id:       order.order_id,\n    po_number:      order.po_number,\n    order_date:     order.order_date,\n    customer_code:  order.customer_code,\n    customer_name:  order.customer_name,\n    customer_vat:   order.customer_vat,\n    customer_email: order.customer_email,\n    currency:       order.currency || cfg.currency,\n\n    lines,\n    line_count: lines.length,\n\n    subtotal_excl_vat: subtotal,\n    vat_amount:        vat,\n    total_incl_vat:    total,\n\n    registered_total: Number.isFinite(registered) ? registered : null,\n    total_drift:      drift,\n    totals_agree:     drift === null ? null : Math.abs(drift) <= 0.05,\n\n    order_row_number: order.row_number,\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        -240
+      ],
+      "id": "8b5aaeef-8c80-4015-a3b1-1f7515d8e20d",
+      "name": "07 · Build invoice & totals"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "CONFIG_GID",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1568,
+        -240
+      ],
+      "id": "3accf74e-1eee-4179-9a15-e8108858d7b4",
+      "name": "08 · Read invoice counter",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 09a · Reserve the invoice number - or reuse one already reserved.\nconst invoice = $('07 · Build invoice & totals').first().json;\nconst order   = $('05 · One at a time').first().json;\n\nconst rows = $input.all().map((i) => i.json);\nconst cfg  = (k) => rows.find((r) => String(r.key).trim() === k)?.value;\n\nconst prefix = String(cfg('invoice_prefix') ?? 'INV').trim();\nconst year   = String(cfg('invoice_year') ?? new Date().getFullYear()).trim();\n\nconst existing = String(order.invoice_number ?? '').trim();\nlet invoice_number, next_counter, reused;\n\nif (existing) {\n  // A previous run reserved this and failed before producing the PDF.\n  invoice_number = existing;\n  next_counter   = Number(cfg('invoice_counter') ?? 0);   // unchanged\n  reused         = true;\n} else {\n  const current = Number(cfg('invoice_counter') ?? 0);\n  next_counter  = current + 1;\n  invoice_number = `${prefix}-${year}-${String(next_counter).padStart(4, '0')}`;\n  reused = false;\n}\n\nreturn [{\n  json: {\n    ...invoice,\n    invoice_number,\n    next_counter,\n    reused_existing_number: reused,\n    invoice_date: new Date().toLocaleDateString('en-ZA', {\n      timeZone: 'Africa/Johannesburg', year: 'numeric', month: '2-digit', day: '2-digit',\n    }),\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        -240
+      ],
+      "id": "2655fff4-26c6-47ad-ad8f-923a258764b4",
+      "name": "09a · Reserve invoice number"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "CONFIG_GID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "=invoice_counter",
+            "value": "={{ $json.next_counter }}"
+          },
+          "matchingColumns": [
+            "key"
+          ],
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "value",
+              "displayName": "value",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2016,
+        -240
+      ],
+      "id": "9bf26c52-6ef9-4046-84d7-445b14771a4d",
+      "name": "09b · Save counter",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ORDERS_GID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ $('09a · Reserve invoice number').first().json.order_id }}",
+            "updated_at": "={{ $now.toISO() }}",
+            "invoice_number": "={{ $('09a · Reserve invoice number').first().json.invoice_number }}"
+          },
+          "matchingColumns": [
+            "order_id"
+          ],
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gmail_message_id",
+              "displayName": "gmail_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "po_number",
+              "displayName": "po_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "order_date",
+              "displayName": "order_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "required_by",
+              "displayName": "required_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_code",
+              "displayName": "customer_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_vat",
+              "displayName": "customer_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_email",
+              "displayName": "customer_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subtotal_excl_vat",
+              "displayName": "subtotal_excl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "vat_amount",
+              "displayName": "vat_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_incl_vat",
+              "displayName": "total_incl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "printed_total",
+              "displayName": "printed_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_pdf_url",
+              "displayName": "source_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "extraction_method",
+              "displayName": "extraction_method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "review_reasons",
+              "displayName": "review_reasons",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_number",
+              "displayName": "invoice_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_pdf_url",
+              "displayName": "invoice_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "approved_by",
+              "displayName": "approved_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "approved_at",
+              "displayName": "approved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "_lines",
+              "displayName": "_lines",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "_notes",
+              "displayName": "_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2240,
+        -240
+      ],
+      "id": "2e49c593-d634-4fec-ab30-2bc399a74fa4",
+      "name": "10 · Stamp number on order",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "copy",
+        "fileId": {
+          "__rl": true,
+          "value": "YOUR_INVOICE_TEMPLATE_ID",
+          "mode": "id"
+        },
+        "name": "={{ $('09a · Reserve invoice number').first().json.invoice_number }} · {{ $('09a · Reserve invoice number').first().json.customer_name }}",
+        "sameFolder": false,
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1gnVKx0iH66AxhIG9Ol46yMBI0W3KVsdS",
+          "mode": "list",
+          "cachedResultName": "Invoices",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1gnVKx0iH66AxhIG9Ol46yMBI0W3KVsdS"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2464,
+        -240
+      ],
+      "id": "e08644f5-5d36-4cad-9ae2-67ddd90b9386",
+      "name": "11 · Copy invoice template",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 12 · One payload describing every cell to write - header, customer,\n// all line items, and the totals - in a single request.\nconst inv    = $('09a · Reserve invoice number').first().json;\nconst copyId = $('11 · Copy invoice template').first().json.id;\n\nconst money = (n) => Number(n).toFixed(2);\n\n// Line items as a 2D array: one inner array per row.\nconst lineRows = inv.lines.map((l) => [\n  l.sku,\n  l.description,\n  l.qty,\n  money(l.unit_price),\n  money(l.line_total),\n]);\n\nconst lastRow = 11 + lineRows.length;   // items start at row 12\n\nconst data = [\n  { range: 'Sheet1!D2', values: [[inv.invoice_number]] },\n  { range: 'Sheet1!D3', values: [[inv.invoice_date]] },\n  { range: 'Sheet1!D4', values: [[inv.po_number || inv.order_id]] },\n\n  { range: 'Sheet1!A7:A9', values: [\n      [inv.customer_name],\n      [`VAT Reg No: ${inv.customer_vat || '-'}`],\n      [inv.customer_email || ''],\n  ]},\n\n  { range: `Sheet1!A12:E${lastRow}`, values: lineRows },\n\n  { range: 'Sheet1!D27:D29', values: [\n      [money(inv.subtotal_excl_vat)],\n      [money(inv.vat_amount)],\n      [money(inv.total_incl_vat)],\n  ]},\n];\n\nreturn [{\n  json: {\n    spreadsheetId: copyId,\n    invoice_number: inv.invoice_number,\n    body: { valueInputOption: 'USER_ENTERED', data },\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2688,
+        -240
+      ],
+      "id": "a7745a51-663a-40f5-a3ae-0a1ad78c622a",
+      "name": "12 · Build batchUpdate payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2912,
+        -240
+      ],
+      "id": "c53f5b81-09f0-4ceb-857e-a19991bb0bae",
+      "name": "13 · Fill template",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://docs.google.com/spreadsheets/d/{{ $('11 · Copy invoice template').first().json.id }}/export?format=pdf&portrait=true&fitw=true&gridlines=false&printtitle=false&sheetnames=false&pagenumbers=false&size=A4&top_margin=0.5&bottom_margin=0.5&left_margin=0.5&right_margin=0.5&range=A1:E32\n",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3136,
+        -240
+      ],
+      "id": "97d95dbb-3c55-4893-9879-a388a287adc1",
+      "name": "14 · Export as PDF",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $('09a · Reserve invoice number').first().json.invoice_number }}.pdf",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1gnVKx0iH66AxhIG9Ol46yMBI0W3KVsdS",
+          "mode": "list",
+          "cachedResultName": "Invoices",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1gnVKx0iH66AxhIG9Ol46yMBI0W3KVsdS"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3360,
+        -240
+      ],
+      "id": "f70d3dc5-c035-445e-a4b2-0c5d97850a92",
+      "name": "15 · Save PDF to Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ORDERS_GID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ $('05 · One at a time').first().json.order_id }}",
+            "status": "=invoiced",
+            "invoice_pdf_url": "={{ $('15 · Save PDF to Drive').first().json.webViewLink }}",
+            "updated_at": "={{ $now.setZone('Africa/Johannesburg').toISO() }}"
+          },
+          "matchingColumns": [
+            "order_id"
+          ],
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gmail_message_id",
+              "displayName": "gmail_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "po_number",
+              "displayName": "po_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "order_date",
+              "displayName": "order_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "required_by",
+              "displayName": "required_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_code",
+              "displayName": "customer_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_vat",
+              "displayName": "customer_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_email",
+              "displayName": "customer_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "subtotal_excl_vat",
+              "displayName": "subtotal_excl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "vat_amount",
+              "displayName": "vat_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total_incl_vat",
+              "displayName": "total_incl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "printed_total",
+              "displayName": "printed_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source_pdf_url",
+              "displayName": "source_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "extraction_method",
+              "displayName": "extraction_method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "review_reasons",
+              "displayName": "review_reasons",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "invoice_number",
+              "displayName": "invoice_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "invoice_pdf_url",
+              "displayName": "invoice_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "approved_by",
+              "displayName": "approved_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "approved_at",
+              "displayName": "approved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "_lines",
+              "displayName": "_lines",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "_notes",
+              "displayName": "_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3584,
+        -240
+      ],
+      "id": "786ae65d-46e7-44ae-8b3d-88550d3aa541",
+      "name": "16 · Mark invoiced",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "you@example.com",
+        "subject": "=Approve invoice {{ $('09a · Reserve invoice number').first().json.invoice_number }} — {{ $('05 · One at a time').first().json.customer_name }}",
+        "message": "=Invoice {{ $('09a · Reserve invoice number').first().json.invoice_number }} is ready for approval.\n\nCustomer:   {{ $('05 · One at a time').first().json.customer_name }}\nPO number:  {{ $('05 · One at a time').first().json.po_number }}\nOrder:      {{ $('05 · One at a time').first().json.order_id }}\nTotal:      R {{ $('05 · One at a time').first().json.total_incl_vat }} (incl. 15% VAT)\n\nOpen the invoice PDF:\n{{ $('15 · Save PDF to Drive').first().json.webViewLink }}\n",
+        "responseType": "customForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "decision",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Approve"
+                  },
+                  {
+                    "option": "Reject"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "comment",
+              "fieldType": "textarea",
+              "placeholder": "Reason, if rejecting"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3808,
+        -240
+      ],
+      "id": "94a45d8c-80ba-4d98-862a-0b0737ef18e7",
+      "name": "17 · Send for approval",
+      "webhookId": "bde7ef3c-255e-470e-ae98-30c42373df16",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9b2e9cfb-bdb9-47c6-8e94-f490c3e21c29",
+              "leftValue": "={{ $json.data.decision }}",
+              "rightValue": "Approve",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        4032,
+        -240
+      ],
+      "id": "5144af6e-c6a4-458c-b043-16955ff6926a",
+      "name": "18 · Approved?"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ORDERS_GID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ $('05 · One at a time').first().json.order_id }}",
+            "status": "=approved",
+            "approved_by": "you@example.com",
+            "approved_at": "=\t{{ $now.setZone('Africa/Johannesburg').toISO() }}",
+            "updated_at": "={{ $now.setZone('Africa/Johannesburg').toISO() }}"
+          },
+          "matchingColumns": [
+            "order_id"
+          ],
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gmail_message_id",
+              "displayName": "gmail_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "po_number",
+              "displayName": "po_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "order_date",
+              "displayName": "order_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "required_by",
+              "displayName": "required_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_code",
+              "displayName": "customer_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_vat",
+              "displayName": "customer_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_email",
+              "displayName": "customer_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subtotal_excl_vat",
+              "displayName": "subtotal_excl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "vat_amount",
+              "displayName": "vat_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_incl_vat",
+              "displayName": "total_incl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "printed_total",
+              "displayName": "printed_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_pdf_url",
+              "displayName": "source_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "extraction_method",
+              "displayName": "extraction_method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "review_reasons",
+              "displayName": "review_reasons",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_number",
+              "displayName": "invoice_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_pdf_url",
+              "displayName": "invoice_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "approved_by",
+              "displayName": "approved_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "approved_at",
+              "displayName": "approved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "_lines",
+              "displayName": "_lines",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "_notes",
+              "displayName": "_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4256,
+        -336
+      ],
+      "id": "f58907ab-b33c-4c1d-9a01-c882971724bd",
+      "name": "19 · Mark approved",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ORDERS_GID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ $('05 · One at a time').first().json.order_id }}",
+            "status": "rejected",
+            "review_reasons": "=Invoice {{ $('09a · Reserve invoice number').first().json.invoice_number }} rejected by {{ $('17 · Send for approval').first().json.data.decision === 'Reject' ? 'reviewer' : 'reviewer' }}: {{ $('17 · Send for approval').first().json.data.comment || 'no reason given' }}\n",
+            "updated_at": "={{ $now.setZone('Africa/Johannesburg').toISO() }}"
+          },
+          "matchingColumns": [
+            "order_id"
+          ],
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gmail_message_id",
+              "displayName": "gmail_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "po_number",
+              "displayName": "po_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "order_date",
+              "displayName": "order_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "required_by",
+              "displayName": "required_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_code",
+              "displayName": "customer_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_vat",
+              "displayName": "customer_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_email",
+              "displayName": "customer_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subtotal_excl_vat",
+              "displayName": "subtotal_excl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "vat_amount",
+              "displayName": "vat_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_incl_vat",
+              "displayName": "total_incl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "printed_total",
+              "displayName": "printed_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_pdf_url",
+              "displayName": "source_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "extraction_method",
+              "displayName": "extraction_method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "review_reasons",
+              "displayName": "review_reasons",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_number",
+              "displayName": "invoice_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_pdf_url",
+              "displayName": "invoice_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "approved_by",
+              "displayName": "approved_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "approved_at",
+              "displayName": "approved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "_lines",
+              "displayName": "_lines",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "_notes",
+              "displayName": "_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4256,
+        -144
+      ],
+      "id": "ecb07044-e182-4d86-97ac-5f8ce0684fdc",
+      "name": "20 · Handle rejection",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "AUDIT_LOG_GID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $now.setZone('Africa/Johannesburg').toISO() }}",
+            "workflow": "02 · Invoice & Approval",
+            "execution_id": "={{ $execution.id }}",
+            "order_id": "={ $('05 · One at a time').first().json.order_id }}",
+            "from_status": "invoiced",
+            "to_status": "={{ $('17 · Send for approval').first().json.data.decision === 'Approve' ? 'approved' : 'rejected' }}",
+            "node": "={{ $('17 · Send for approval').first().json.data.decision === 'Approve' ? '19 · Mark approved' : '20 · Handle rejection' }}",
+            "detail": "={{ $('09a · Reserve invoice number').first().json.invoice_number }}{{ $('17 · Send for approval').first().json.data.comment ? ' — ' + $('17 · Send for approval').first().json.data.comment : '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "from_status",
+              "displayName": "from_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "to_status",
+              "displayName": "to_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "detail",
+              "displayName": "detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4480,
+        -240
+      ],
+      "id": "4496c910-fa5a-46a7-87ce-d19937abf7f7",
+      "name": "21 · Audit log",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "deleteFile",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $('11 · Copy invoice template').first().json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        4704,
+        -160
+      ],
+      "id": "507431c4-47fa-4ce1-90c8-2f035f66011f",
+      "name": "22 · Delete working copy",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Drive"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "01 · Every 15 minutes": {
+      "main": [
+        [
+          {
+            "node": "02 · Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 · Config": {
+      "main": [
+        [
+          {
+            "node": "03 · Find completed orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 · Find completed orders": {
+      "main": [
+        [
+          {
+            "node": "04 · Needs an invoice?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 · Needs an invoice?": {
+      "main": [
+        [
+          {
+            "node": "05 · One at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05 · One at a time": {
+      "main": [
+        [
+          {
+            "node": "06 · Get order lines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 · Get order lines": {
+      "main": [
+        [
+          {
+            "node": "07 · Build invoice & totals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "07 · Build invoice & totals": {
+      "main": [
+        [
+          {
+            "node": "08 · Read invoice counter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08 · Read invoice counter": {
+      "main": [
+        [
+          {
+            "node": "09a · Reserve invoice number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09a · Reserve invoice number": {
+      "main": [
+        [
+          {
+            "node": "09b · Save counter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09b · Save counter": {
+      "main": [
+        [
+          {
+            "node": "10 · Stamp number on order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 · Stamp number on order": {
+      "main": [
+        [
+          {
+            "node": "11 · Copy invoice template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11 · Copy invoice template": {
+      "main": [
+        [
+          {
+            "node": "12 · Build batchUpdate payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12 · Build batchUpdate payload": {
+      "main": [
+        [
+          {
+            "node": "13 · Fill template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13 · Fill template": {
+      "main": [
+        [
+          {
+            "node": "14 · Export as PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "14 · Export as PDF": {
+      "main": [
+        [
+          {
+            "node": "15 · Save PDF to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "15 · Save PDF to Drive": {
+      "main": [
+        [
+          {
+            "node": "16 · Mark invoiced",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "16 · Mark invoiced": {
+      "main": [
+        [
+          {
+            "node": "17 · Send for approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "17 · Send for approval": {
+      "main": [
+        [
+          {
+            "node": "18 · Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "18 · Approved?": {
+      "main": [
+        [
+          {
+            "node": "19 · Mark approved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "20 · Handle rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "19 · Mark approved": {
+      "main": [
+        [
+          {
+            "node": "21 · Audit log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "20 · Handle rejection": {
+      "main": [
+        [
+          {
+            "node": "21 · Audit log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "21 · Audit log": {
+      "main": [
+        [
+          {
+            "node": "22 · Delete working copy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "22 · Delete working copy": {
+      "main": [
+        [
+          {
+            "node": "05 · One at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "nodeGroups": []
+}

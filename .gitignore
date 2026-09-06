@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Databases and secrets — never commit.
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env
+.env.*
+
+# The sanitiser's mapping: the one file holding real ids and addresses.
+# Committing it would publish exactly what the tool exists to remove.
+tools/sanitise-map.json
+
+# Private working documents. These stay on this machine.
+#
+# BUILD-PROGRESS.md is the build log: it carries live spreadsheet ids, sheet
+# gids, the Google account name, the OAuth project number and notes on local
+# credentials. None of that belongs in a public repository.
+BUILD-PROGRESS.md
+LINKEDIN-POST.md
+n8n_worrkflow.md
+notes/
+

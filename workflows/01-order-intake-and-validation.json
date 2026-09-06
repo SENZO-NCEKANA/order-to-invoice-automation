@@ -1,0 +1,1940 @@
+{
+  "name": "01 · Order Intake & Validation",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "93c6ecf5-c9e8-4425-b1f5-976e799ada94",
+              "name": "spreadsheetId",
+              "value": "YOUR_SPREADSHEET_ID",
+              "type": "string"
+            },
+            {
+              "id": "a3661f2d-bd4e-4a90-8d93-d69b800010b1",
+              "name": "vatRate",
+              "value": 0.15,
+              "type": "number"
+            },
+            {
+              "id": "0f6181cc-6755-4b87-b8e3-cc80ca18ddee",
+              "name": "currency",
+              "value": "ZAR",
+              "type": "string"
+            },
+            {
+              "id": "f3d96ede-112f-45e0-acb1-f9a38d118d14",
+              "name": "textThreshold",
+              "value": 200,
+              "type": "number"
+            },
+            {
+              "id": "48cd1309-393b-431d-8f48-5866f57f6d9d",
+              "name": "dryRun",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "0678bde6-9cda-4255-8542-f56fbe429ea0",
+              "name": "reviewerEmail",
+              "value": "you@example.com",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        256,
+        -464
+      ],
+      "id": "99edb4a1-d02d-4a72-bd48-37c55a766ca4",
+      "name": "02 · Config"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "labelIds": [
+            "Label_3296620022023269033"
+          ],
+          "q": "has:attachment filename:pdf"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        32,
+        -464
+      ],
+      "id": "3d06e32e-c126-46a9-b259-45d915ffde1e",
+      "name": "01 · Receive order email",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ORDERS_GID"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "gmail_message_id",
+              "lookupValue": "={{ $('01 · Receive order email').first().json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        480,
+        -464
+      ],
+      "id": "9815fe27-32e2-4e05-90fd-f6f2f07cb54a",
+      "name": "03 · Duplicate check",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ee17cd5a-bc1c-4eeb-82f8-2da0dcf94683",
+              "leftValue": "={{ $json.gmail_message_id || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "5b0a5863-ac5a-4e69-9f9c-bf2ee83b58e2",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        704,
+        -464
+      ],
+      "id": "4bdad434-6e23-4138-b081-219f40e290b7",
+      "name": "04 · Already processed?",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $('01 · Receive order email').item.json.id }}\n",
+        "simple": false,
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        928,
+        -400
+      ],
+      "id": "f8206910-9a57-455f-b09a-9309b1ae9fe5",
+      "name": "05 · Fetch message + attachment",
+      "webhookId": "67714f43-3321-4a2c-955d-1a74536dfade",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "attachment_0",
+        "name": "={{ $('01 · Receive order email').item.json.id }}-{{ $binary.attachment_0.fileName }}\n",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1MXUMHYJ3hahT8mm76s8ILy-hCRjhp_x4",
+          "mode": "list",
+          "cachedResultName": "Orders Incoming",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1MXUMHYJ3hahT8mm76s8ILy-hCRjhp_x4"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1152,
+        -304
+      ],
+      "id": "0329fe65-722a-473b-bc45-0757f5c8a51a",
+      "name": "06 · Archive PDF to Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "attachment_0",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        1152,
+        -496
+      ],
+      "id": "c8a4596f-4105-4a11-a7ec-377925d60a68",
+      "name": "07 · Extract PDF text"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9025c82c-27fc-44d6-8ee9-25bebe31e3cb",
+              "leftValue": "={{ ($json.text || '').length }}",
+              "rightValue": "={{ $('02 · Config').item.json.textThreshold }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1376,
+        -496
+      ],
+      "id": "28e52c0b-e1a1-4c4d-a77b-ff2c5beb5711",
+      "name": "08 · Has a text layer?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node 10 · Normalise, recompute, and self-heal\n// The model may READ numbers. It never CALCULATES them - and where the\n// document contradicts itself, arithmetic wins over the model.\nconst cfg     = $('02 · Config').first().json;\nconst gmail   = $('01 · Receive order email').first().json;\nconst pdfText = $('07 · Extract PDF text').first().json.text || '';\n\nconst method = pdfText.length >= Number(cfg.textThreshold) ? 'text' : 'vision';\n\nlet sourcePdfUrl = null;\ntry { sourcePdfUrl = $('06 · Archive PDF to Drive').first().json.webViewLink ?? null; } catch (e) {}\n\nconst round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;\nconst num    = (v) => (v === null || v === undefined || v === '' ? null : Number(v));\nconst near   = (a, b) => a !== null && b !== null && Math.abs(a - b) <= 0.05;\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  let src = item.json.output ?? item.json;\n  let parse_ok = true;\n  if (typeof item.json.response === 'string') {\n    try { src = JSON.parse(item.json.response); } catch (e) { src = {}; parse_ok = false; }\n  }\n  if (!src || typeof src !== 'object') { src = {}; parse_ok = false; }\n\n  const lines = (src.line_items ?? []).map((l, i) => {\n    const unit    = round2(num(l.unit_price) ?? 0);\n    const printed = num(l.line_total);\n    let   qty     = num(l.qty) ?? 0;\n\n    let qty_read      = qty;\n    let qty_corrected = false;\n\n    // Self-heal: if qty x unit disagrees with the printed line total, and the\n    // printed total divides cleanly by the unit price, trust the arithmetic.\n    if (printed !== null && unit > 0 && !near(round2(qty * unit), printed)) {\n      const implied = printed / unit;\n      const rounded = Math.round(implied);\n      if (rounded > 0 && Math.abs(implied - rounded) < 0.001) {\n        qty = rounded;\n        qty_corrected = true;\n      }\n    }\n\n    const computed = round2(qty * unit);\n    return {\n      line_no: i + 1,\n      sku: String(l.sku ?? '').trim().toUpperCase(),\n      description: String(l.description ?? '').trim(),\n      qty,\n      qty_read,\n      qty_corrected,\n      unit_price: unit,\n      line_total: computed,\n      printed_line_total: printed,\n      line_total_matches: printed === null ? null : near(computed, printed),\n    };\n  });\n\n  const computed_subtotal = round2(lines.reduce((s, l) => s + l.line_total, 0));\n  const computed_vat      = round2(computed_subtotal * Number(cfg.vatRate));\n  const computed_total    = round2(computed_subtotal + computed_vat);\n\n  const printed_subtotal = num(src.printed_subtotal);\n  const printed_vat      = num(src.printed_vat);\n  const printed_total    = num(src.printed_total);\n\n  const po = (src.po_number ?? '').toString().trim();\n  const corrections = lines.filter((l) => l.qty_corrected).length;\n\n  results.push({\n    json: {\n      order_id: po || `TMP-${gmail.id}`,\n      gmail_message_id: gmail.id,\n      po_number: po || null,\n      order_date: src.order_date ?? null,\n      required_by: src.required_by ?? null,\n      customer_name: (src.customer_name ?? '').toString().trim() || null,\n      customer_vat: (src.customer_vat ?? '').toString().trim() || null,\n      currency: src.currency || cfg.currency,\n\n      lines,\n      line_count: lines.length,\n\n      computed_subtotal,\n      computed_vat,\n      computed_total,\n      printed_subtotal,\n      printed_vat,\n      printed_total,\n\n      subtotal_matches: near(printed_subtotal, computed_subtotal),\n      total_matches:    near(printed_total, computed_total),\n      totals_absent:    printed_subtotal === null && printed_total === null,\n      lines_consistent: lines.every((l) => l.line_total_matches !== false),\n\n      qty_corrections: corrections,\n      self_healed: corrections > 0 && near(printed_subtotal, computed_subtotal),\n\n      parse_ok,\n      extraction_method: method,\n      source_pdf_url: sourcePdfUrl,\n      extracted_at: new Date().toISOString(),\n    },\n  });\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2496,
+        -496
+      ],
+      "id": "bd44c7e7-c773-420f-aa9e-96778631f6d9",
+      "name": "10 · Normalise & recompute"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.text || '';\n\nconst prompt = `Extract purchase order data from the text below.\nReturn ONLY JSON: {\"po_number\":string|null,\"order_date\":string|null,\"required_by\":string|null,\n\"customer_name\":string|null,\"customer_vat\":string|null,\"currency\":string,\n\"printed_subtotal\":number|null,\"printed_vat\":number|null,\"printed_total\":number|null,\n\"line_items\":[{\"sku\":string,\"description\":string,\"qty\":number,\"unit_price\":number,\"line_total\":number}]}\n\nRules: do NOT calculate anything; copy printed totals exactly or null. unit_price EXCLUDES VAT.\ncustomer_name is the company that ISSUED the order (letterhead at top), NOT the supplier.\n\nTEXT:\n${text}`;\n\nreturn [{\n  json: {\n    body: {\n      model: 'gemma3:4b',\n      prompt,\n      stream: false,\n      format: 'json',\n      options: { temperature: 0, seed: 42, top_k: 1, num_predict: 800 },\n    },\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        -592
+      ],
+      "id": "40b1e4d4-614d-4369-b27a-d966e0cad042",
+      "name": "09a-1 · Build extraction request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2272,
+        -592
+      ],
+      "id": "ae0f33b5-137f-4b4a-bb31-86341ed579db",
+      "name": "09a-2 · Extract order (text)",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Customers",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2720,
+        -496
+      ],
+      "id": "8819a2a3-4a56-44cb-a6aa-e735f630680f",
+      "name": "11 · Read customer master",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Price List",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2944,
+        -496
+      ],
+      "id": "6466d44b-ed33-4811-8b0e-84eea827b0e6",
+      "name": "12 · Read price list",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node 13 · Validation verdict\n// Turns all the collected signals into one decision plus human-readable reasons.\nconst order     = $('10 · Normalise & recompute').first().json;\nconst customers = $('11 · Read customer master').all().map(i => i.json);\nconst prices    = $('12 · Read price list').all().map(i => i.json);\n\n// Loose comparison: case, punctuation and spacing shouldn't decide a match.\nconst norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();\nconst near = (a, b) => a != null && b != null && Math.abs(Number(a) - Number(b)) <= 0.01;\n\nconst reasons = [];   // blocking - these send the order to review\nconst notes   = [];   // informational - recorded, but not blocking\n\nlet totalsReconciled = false;   // did BOTH printed values agree with our arithmetic?\n\n// --- did the model return anything usable at all? ---\nif (order.parse_ok === false) reasons.push('Extraction returned unparseable output');\n\n// --- required fields ---\nif (!order.po_number)     reasons.push('No PO number on the document');\nif (!order.order_date)    reasons.push('No order date');\nif (!order.customer_name) reasons.push('No customer name');\nif (!order.lines || order.lines.length === 0) reasons.push('No line items extracted');\n\n// --- customer must exist in the master ---\nlet customer = customers.find(c => norm(c.company_name) === norm(order.customer_name));\nif (!customer && order.customer_vat) {\n  customer = customers.find(c => norm(c.vat_number) === norm(order.customer_vat));\n  if (customer) notes.push('Customer matched on VAT number, not name');\n}\nif (!customer) {\n  reasons.push(`Customer not in master: \"${order.customer_name ?? 'unknown'}\"`);\n}\n\n// --- every SKU must exist, and its price must match the price list ---\nconst byIdx = new Map(prices.map(p => [String(p.sku).trim().toUpperCase(), p]));\nconst lines = (order.lines ?? []).map((l) => {\n  const master = byIdx.get(l.sku);\n  const master_price = master ? Number(master.unit_price_excl_vat) : null;\n  const price_matches = master ? near(l.unit_price, master_price) : null;\n\n  if (!master) {\n    reasons.push(`Line ${l.line_no}: SKU not in price list (${l.sku || 'blank'})`);\n  } else if (!price_matches) {\n    reasons.push(\n      `Line ${l.line_no} (${l.sku}): price R${l.unit_price} does not match price list R${master_price}`\n    );\n  }\n  if (l.line_total_matches === false) {\n    reasons.push(`Line ${l.line_no} (${l.sku}): qty x price does not equal the printed line total`);\n  }\n  if (l.qty_corrected) {\n    notes.push(`Line ${l.line_no}: quantity corrected from ${l.qty_read} to ${l.qty} by arithmetic`);\n  }\n\n  return { ...l, master_price, price_matches, master_description: master?.description ?? null };\n});\n\n// --- totals must agree with our own arithmetic, against BOTH printed values ---\n// Sigma(lines) and the printed subtotal can be wrong together and still agree\n// with each other. The printed grand total is a separate reading of the same\n// fact, so it disagrees when they are. Checking only the subtotal is a blind spot.\nif (order.totals_absent) {\n  reasons.push('Document shows no totals to check against');\n} else {\n  if (order.subtotal_matches === false) {\n    reasons.push(\n      `Subtotal mismatch: document says R${order.printed_subtotal}, lines add to R${order.computed_subtotal}`\n    );\n  }\n\n  const vatRate       = Number($('02 · Config').first().json.vatRate) || 0.15;\n  const computedSub   = Number(order.computed_subtotal);\n  const computedTotal = Math.round(computedSub * (1 + vatRate) * 100) / 100;\n  const printedTotal  = Number(order.printed_total);\n\n  if (!Number.isFinite(computedSub)) {\n    reasons.push('Could not compute a subtotal from the extracted lines');\n  } else if (!Number.isFinite(printedTotal) || printedTotal <= 0) {\n    notes.push('Document shows no grand total - only the subtotal could be cross-checked');\n  } else if (Math.abs(computedTotal - printedTotal) > 0.02) {\n    reasons.push(\n      `Total mismatch: document says R${printedTotal.toFixed(2)}, ` +\n      `our lines plus VAT come to R${computedTotal.toFixed(2)} ` +\n      `(out by R${Math.abs(computedTotal - printedTotal).toFixed(2)})`\n    );\n  } else if (order.subtotal_matches !== false) {\n    totalsReconciled = true;   // both independent printed values agree with us\n  }\n}\n\n// --- scanned documents are never trusted on numbers alone ---\nif (order.extraction_method === 'vision') {\n  notes.push('Extracted from a scanned image - numbers are less reliable');\n  const unmatched = lines.filter(l => l.price_matches !== true).length;\n  if (unmatched > 0) {\n    reasons.push(`Scanned order: ${unmatched} line(s) could not be confirmed against the price list`);\n  }\n}\n\nconst valid = reasons.length === 0;\n\nreturn [{\n  json: {\n    ...order,\n    lines,\n\n    valid,\n    status: valid ? 'registered' : 'needs_review',\n    reasons,\n    review_reasons: reasons.join(' | '),\n    notes,\n    note_text: notes.join(' | '),\n\n    // Earned, not assumed: 'high' requires TWO independent printed values to agree.\n    totals_reconciled: totalsReconciled,\n    confidence: !valid ? 'low' : (totalsReconciled ? 'high' : 'medium'),\n\n    // Enrichment the later stages need\n    customer_code:  customer?.customer_code  ?? null,\n    customer_email: customer?.email          ?? null,\n    payment_terms:  customer?.payment_terms  ?? null,\n\n    validated_at: new Date().toISOString(),\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3168,
+        -496
+      ],
+      "id": "57161eda-228b-4fd7-9af7-018085ca94d3",
+      "name": "13 · Validation verdict"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1c58a442-d492-471d-8618-c5c70a247bd9",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3392,
+        -496
+      ],
+      "id": "7abcec5a-cb03-4d79-a1de-74ad7d3c6f9a",
+      "name": "14 · Valid?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 15a · Build Orders row - shape the item to match the sheet's columns exactly,\n// so the Sheets node can map automatically instead of 25 manual field mappings.\nconst now = new Date().toISOString();\n\nreturn $input.all().map((item) => {\n  const o = item.json;\n\n  // Honest confidence signal rather than a number the model made up.\n  let confidence = 'high';\n  if (o.extraction_method === 'vision') confidence = 'low';\n  else if (o.qty_corrections > 0)       confidence = 'medium';\n\n  return {\n    json: {\n      order_id:          o.order_id,\n      gmail_message_id:  o.gmail_message_id,\n      po_number:         o.po_number ?? '',\n      order_date:        o.order_date ?? '',\n      required_by:       o.required_by ?? '',\n      customer_code:     o.customer_code ?? '',\n      customer_name:     o.customer_name ?? '',\n      customer_vat:      o.customer_vat ?? '',\n      customer_email:    o.customer_email ?? '',\n      currency:          o.currency ?? 'ZAR',\n      subtotal_excl_vat: o.computed_subtotal,\n      vat_amount:        o.computed_vat,\n      total_incl_vat:    o.computed_total,\n      printed_total:     o.printed_total ?? '',\n      status:            o.status,\n      source_pdf_url:    o.source_pdf_url ?? '',\n      extraction_method: o.extraction_method,\n      confidence,\n      review_reasons:    o.review_reasons ?? '',\n      invoice_number:    '',\n      invoice_pdf_url:   '',\n      approved_by:       '',\n      approved_at:       '',\n      created_at:        now,\n      updated_at:        now,\n\n      // kept for the next nodes, ignored by the sheet\n      _lines: o.lines,\n      _notes: o.note_text ?? '',\n    },\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4512,
+        -496
+      ],
+      "id": "5e1ee9d7-2adb-4134-a149-25ffd0bb085b",
+      "name": "15a · Build Orders row"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ORDERS_GID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "order_id"
+          ],
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gmail_message_id",
+              "displayName": "gmail_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "po_number",
+              "displayName": "po_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "order_date",
+              "displayName": "order_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "required_by",
+              "displayName": "required_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_code",
+              "displayName": "customer_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_vat",
+              "displayName": "customer_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_email",
+              "displayName": "customer_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "subtotal_excl_vat",
+              "displayName": "subtotal_excl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "vat_amount",
+              "displayName": "vat_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total_incl_vat",
+              "displayName": "total_incl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "printed_total",
+              "displayName": "printed_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source_pdf_url",
+              "displayName": "source_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "extraction_method",
+              "displayName": "extraction_method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "review_reasons",
+              "displayName": "review_reasons",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "invoice_number",
+              "displayName": "invoice_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "invoice_pdf_url",
+              "displayName": "invoice_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "approved_by",
+              "displayName": "approved_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "approved_at",
+              "displayName": "approved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "_lines",
+              "displayName": "_lines",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "_notes",
+              "displayName": "_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4736,
+        -496
+      ],
+      "id": "f896ef26-5aec-4a5c-af1b-467d1d24c1d3",
+      "name": "15b · Register order",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 16 · Expand line items - one order becomes N line items.\n// 15b is a Sheets node and replaced the item, so reach back to 15a for the lines.\nconst src = $('15a · Build Orders row').first().json;\nconst now = new Date().toISOString();\n\nif (!src.order_id) {\n  throw new Error('Cannot expand line items: order_id is empty on the 15a record.');\n}\n\nconst lines = Array.isArray(src._lines) ? src._lines : [];\n\nif (lines.length === 0) {\n  // A needs_review record with nothing to expand is a legitimate outcome.\n  // A record claiming to be registered with no lines is a data-integrity fault.\n  if (src.status === 'registered') {\n    throw new Error(\n      `Order ${src.order_id} was registered with no line items. ` +\n      `Check node 20 (correction merge) and node 09a-2 (extraction).`\n    );\n  }\n  return [];\n}\n\nreturn lines.map((l) => ({\n  json: {\n    order_id:            src.order_id,\n    line_no:             l.line_no,\n    sku:                 l.sku,\n    description:         l.description || l.master_description || '',\n    qty:                 l.qty,\n    unit_price_excl_vat: l.unit_price,\n    line_total_excl_vat: l.line_total,\n    sku_matched:         l.price_matches === true,\n    created_at:          now,\n    line_key:            `${src.order_id}-${l.line_no}`,\n  },\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4960,
+        -496
+      ],
+      "id": "1d671745-54c1-4f53-ab21-04464815fa42",
+      "name": "16 · Expand line items"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ORDER_LINES_GID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "line_key"
+          ],
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "line_no",
+              "displayName": "line_no",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sku",
+              "displayName": "sku",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "qty",
+              "displayName": "qty",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "unit_price_excl_vat",
+              "displayName": "unit_price_excl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "line_total_excl_vat",
+              "displayName": "line_total_excl_vat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sku_matched",
+              "displayName": "sku_matched",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "line_key",
+              "displayName": "line_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        5184,
+        -496
+      ],
+      "id": "5791afed-0527-4f83-93c3-754d464224ff",
+      "name": "17 · Append order lines",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 18a · Build review row - everything a human needs to fix this without\n// opening the workflow or the original email.\nconst now = new Date().toISOString();\n\nreturn $input.all().map((item) => {\n  const o = item.json;\n\n  // A compact snapshot of what was actually read, so the reviewer can see\n  // the machine's version beside the document.\n  const snapshot = {\n    po_number: o.po_number,\n    order_date: o.order_date,\n    customer_name: o.customer_name,\n    customer_vat: o.customer_vat,\n    computed_subtotal: o.computed_subtotal,\n    computed_vat: o.computed_vat,\n    computed_total: o.computed_total,\n    printed_subtotal: o.printed_subtotal,\n    printed_total: o.printed_total,\n    extraction_method: o.extraction_method,\n    lines: (o.lines ?? []).map((l) => ({\n      line_no: l.line_no,\n      sku: l.sku,\n      qty: l.qty,\n      qty_read: l.qty_read,\n      unit_price: l.unit_price,\n      master_price: l.master_price,\n      line_total: l.line_total,\n    })),\n  };\n\n  return {\n    json: {\n      review_id:        `REV-${o.order_id}`,\n      order_id:         o.order_id,\n      gmail_message_id: o.gmail_message_id,\n      po_number:        o.po_number ?? '',\n      customer_name:    o.customer_name ?? '',\n      reasons:          o.review_reasons ?? '',\n      extracted_json:   JSON.stringify(snapshot),\n      source_pdf_url:   o.source_pdf_url ?? '',\n      status:           'open',\n      raised_at:        now,\n      resolved_at:      '',\n      resolved_by:      '',\n    },\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3616,
+        -416
+      ],
+      "id": "5f43f2ad-0eea-40c3-8663-f24c347a997c",
+      "name": "18a · Build review row"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "NEEDS_REVIEW_GID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "review_id"
+          ],
+          "schema": [
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gmail_message_id",
+              "displayName": "gmail_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "po_number",
+              "displayName": "po_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reasons",
+              "displayName": "reasons",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "extracted_json",
+              "displayName": "extracted_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source_pdf_url",
+              "displayName": "source_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "raised_at",
+              "displayName": "raised_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "resolved_at",
+              "displayName": "resolved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "resolved_by",
+              "displayName": "resolved_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3840,
+        -416
+      ],
+      "id": "7f10d145-0695-4823-8a80-59a1e7cc42e3",
+      "name": "18b · Queue for review",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ $('02 · Config').first().json.reviewerEmail }}",
+        "subject": "=Order needs review: {{ $('18a · Build review row').first().json.order_id }}",
+        "message": "=An order could not be registered automatically and needs your check.\n\nOrder:    {{ $('18a · Build review row').first().json.order_id }}\nCustomer: {{ $('18a · Build review row').first().json.customer_name }}\n\nWhy it stopped:\n{{ $('18a · Build review row').first().json.reasons }}\n\nOriginal PDF: {{ $('18a · Build review row').first().json.source_pdf_url }}\n\nCorrect anything that's wrong below, then choose Register or Reject.\nLeave a field blank to keep what the system read.\n",
+        "responseType": "customForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "po_number"
+            },
+            {
+              "fieldLabel": "customer_name"
+            },
+            {
+              "fieldLabel": "decision",
+              "fieldType": "dropdown",
+              "defaultValue": "Register, Reject",
+              "fieldOptions": {
+                "values": [
+                  {}
+                ]
+              }
+            },
+            {
+              "fieldLabel": "comments",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        4064,
+        -416
+      ],
+      "id": "9dcf65fd-db96-490a-8a33-dc16bb6e48e6",
+      "name": "19 · Request correction",
+      "webhookId": "9e943a2d-5df3-4802-8999-9521747835dc",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 20 · Merge correction - overlay the human's edits onto the extracted order,\n// then RE-VALIDATE. A human answering one question is not evidence that the\n// other answers are right, so nothing here asserts validity - it re-earns it.\nconst original = $('13 · Validation verdict').first().json;\nconst form     = $input.first().json.data ?? $input.first().json ?? {};\n\n// Form field names vary by n8n version - accept either shape.\nconst pick = (k) => {\n  const v = form[k] ?? form[k.replace('_', ' ')] ?? '';\n  return String(v).trim();\n};\n\nconst decision = (pick('decision') || 'Register').toLowerCase();\nif (decision.startsWith('reject')) {\n  return [{ json: { ...original, status: 'rejected', rejected_at: new Date().toISOString(),\n                    reviewer_comments: pick('comments'), _rejected: true } }];\n}\n\n// Overlay: a blank answer means \"keep what the machine read\".\nconst merged = { ...original };\nconst po       = pick('po_number');\nconst customer = pick('customer_name');\nif (po)       merged.po_number     = po;\nif (customer) merged.customer_name = customer;\nmerged.order_id = merged.po_number || original.order_id;\n\n// Re-check the blocking conditions. Only what a form answer could plausibly\n// fix is re-tested; everything else keeps whatever node 13 decided.\nconst stillMissing = [];\nif (!merged.po_number)     stillMissing.push('No PO number on the document');\nif (!merged.order_date)    stillMissing.push('No order date');\nif (!merged.customer_name) stillMissing.push('No customer name');\nif (!Array.isArray(merged.lines) || merged.lines.length === 0) {\n  stillMissing.push('No line items extracted');\n}\n\nconst fixed = stillMissing.length === 0;\n\nreturn [{\n  json: {\n    ...merged,\n    status:  fixed ? 'registered' : 'needs_review',\n    valid:   fixed,\n    reasons: stillMissing,\n    review_reasons: stillMissing.join(' | '),\n    confidence: fixed ? 'medium' : 'low',   // human-touched is never 'high'\n    reviewed_by: $('02 · Config').first().json.reviewerEmail,\n    reviewed_at: new Date().toISOString(),\n    reviewer_comments: pick('comments'),\n    corrected_by_human: true,\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4288,
+        -416
+      ],
+      "id": "8ad302f4-0667-436d-b2dc-eab780c46639",
+      "name": "20 · Merge correction"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('01 · Receive order email').first().json.id }}",
+        "labelIds": [
+          "Label_9159468527238445883"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        5408,
+        -560
+      ],
+      "id": "e1559d11-26ff-4eae-bc03-330b5be7f9b2",
+      "name": "21 · Label as processed",
+      "webhookId": "230bca47-e1c8-4487-932e-60c4c8976f4b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 22a · Build audit row - one line of history per execution, whichever path ran.\n// A node reference throws if that node didn't execute in this run,\n// which is how we tell the three paths apart.\nconst ran = (name) => { try { $(name).first(); return true; } catch (e) { return false; } };\n\nlet to_status = 'skipped_duplicate';\nlet detail    = 'Message already processed - labelled and stopped';\nlet order_id  = '';\n\nif (ran('15b · Register order')) {\n  const o = $('15a · Build Orders row').first().json;\n  order_id  = o.order_id;\n  to_status = 'registered';\n  detail    = ran('20 · Merge correction')\n    ? `Registered after human correction by ${$('20 · Merge correction').first().json.reviewed_by ?? 'reviewer'}`\n    : `Registered automatically (${o.extraction_method}, confidence ${o.confidence})`;\n} else if (ran('18b · Queue for review')) {\n  const r = $('18a · Build review row').first().json;\n  order_id  = r.order_id;\n  to_status = 'needs_review';\n  detail    = r.reasons;\n}\n\nreturn [{\n  json: {\n    timestamp:    new Date().toISOString(),\n    workflow:     '01 · Order Intake & Validation',\n    execution_id: $execution.id,\n    order_id,\n    from_status:  'received',\n    to_status,\n    node:         '22 · Audit log',\n    detail,\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5632,
+        -560
+      ],
+      "id": "edf10c4e-a6dd-42a8-bced-6ebee9070347",
+      "name": "22a · Build audit row"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "AUDIT_LOG_GID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "from_status",
+              "displayName": "from_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "to_status",
+              "displayName": "to_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "detail",
+              "displayName": "detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        5856,
+        -560
+      ],
+      "id": "bff9a7c8-72bf-4761-a321-75e2ee04c4f8",
+      "name": "22b · Append audit log",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8099/convert",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "attachment_0",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1824,
+        -400
+      ],
+      "id": "566da53d-0bd0-4ee8-8eaf-bd9d4527fa32",
+      "name": "09b-2 · PDF to JPEG"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $('01 · Receive order email').first().json.id }}",
+        "simple": false,
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1600,
+        -400
+      ],
+      "id": "acbb12df-363c-4997-9da3-4533f71800db",
+      "name": "09b-1 · Re-fetch PDF",
+      "webhookId": "0f7d671c-37d7-46e5-8f6b-7560cd7f2790",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 09b-3 · Same schema and same settings as the text branch.\n// The ONLY difference between the two branches is this images array.\nconst jpeg = $input.first().json.jpeg_base64;\n\nconst prompt = `Extract the purchase order data from this document image.\nReturn ONLY JSON: {\"po_number\":string|null,\"order_date\":string|null,\"required_by\":string|null,\n\"customer_name\":string|null,\"customer_vat\":string|null,\"currency\":string,\n\"printed_subtotal\":number|null,\"printed_vat\":number|null,\"printed_total\":number|null,\n\"line_items\":[{\"sku\":string,\"description\":string,\"qty\":number,\"unit_price\":number,\"line_total\":number}]}\n\nRules: do NOT calculate anything; copy printed totals exactly or null. unit_price EXCLUDES VAT.\ncustomer_name is the company that ISSUED the order (letterhead at top), NOT the supplier.\nA space is a thousands separator: \"8 424.00\" is 8424.00.`;\n\nreturn [{\n  json: {\n    body: {\n      model: 'gemma3:4b',\n      prompt,\n      images: [jpeg],\n      stream: false,\n      format: 'json',\n      options: { temperature: 0, seed: 42, top_k: 1, num_predict: 900 },\n    },\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        -400
+      ],
+      "id": "b0ac737e-e055-430a-aeff-f5aadf93ecc0",
+      "name": "09b-3 · Build vision request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:11434/api/generate ",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2272,
+        -400
+      ],
+      "id": "29150890-c364-4f2a-b1f6-2d970185936e",
+      "name": "09b-4 · Extract order (vision)",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "35d818e6-5da2-45c3-a9cf-b750076cd530",
+              "leftValue": "={{ $('20 · Merge correction').isExecuted }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        6080,
+        -560
+      ],
+      "id": "12458b37-ec1b-49d2-8505-f3d4a4bbe33e",
+      "name": "23a · Came from review?"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "NEEDS_REVIEW_GID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "review_id": "={{ $('18a · Build review row').first().json.review_id }}",
+            "status": "resolved",
+            "resolved_at": "={{ $now.setZone('Africa/Johannesburg').toISO() }}",
+            "resolved_by": "you@example.com"
+          },
+          "matchingColumns": [
+            "review_id"
+          ],
+          "schema": [
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gmail_message_id",
+              "displayName": "gmail_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "po_number",
+              "displayName": "po_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reasons",
+              "displayName": "reasons",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "extracted_json",
+              "displayName": "extracted_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_pdf_url",
+              "displayName": "source_pdf_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "raised_at",
+              "displayName": "raised_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "resolved_at",
+              "displayName": "resolved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "resolved_by",
+              "displayName": "resolved_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        6304,
+        -560
+      ],
+      "id": "11911cad-e59e-4a9d-a194-f25262299460",
+      "name": "23b · Close review row",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google · Sheets"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "01 · Receive order email": {
+      "main": [
+        [
+          {
+            "node": "02 · Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 · Config": {
+      "main": [
+        [
+          {
+            "node": "03 · Duplicate check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 · Duplicate check": {
+      "main": [
+        [
+          {
+            "node": "04 · Already processed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 · Already processed?": {
+      "main": [
+        [
+          {
+            "node": "21 · Label as processed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "05 · Fetch message + attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05 · Fetch message + attachment": {
+      "main": [
+        [
+          {
+            "node": "07 · Extract PDF text",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "06 · Archive PDF to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 · Archive PDF to Drive": {
+      "main": [
+        []
+      ]
+    },
+    "07 · Extract PDF text": {
+      "main": [
+        [
+          {
+            "node": "08 · Has a text layer?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08 · Has a text layer?": {
+      "main": [
+        [
+          {
+            "node": "09a-1 · Build extraction request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "09b-1 · Re-fetch PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09a-1 · Build extraction request": {
+      "main": [
+        [
+          {
+            "node": "09a-2 · Extract order (text)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09a-2 · Extract order (text)": {
+      "main": [
+        [
+          {
+            "node": "10 · Normalise & recompute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 · Normalise & recompute": {
+      "main": [
+        [
+          {
+            "node": "11 · Read customer master",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11 · Read customer master": {
+      "main": [
+        [
+          {
+            "node": "12 · Read price list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12 · Read price list": {
+      "main": [
+        [
+          {
+            "node": "13 · Validation verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13 · Validation verdict": {
+      "main": [
+        [
+          {
+            "node": "14 · Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "14 · Valid?": {
+      "main": [
+        [
+          {
+            "node": "15a · Build Orders row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "18a · Build review row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "15a · Build Orders row": {
+      "main": [
+        [
+          {
+            "node": "15b · Register order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "15b · Register order": {
+      "main": [
+        [
+          {
+            "node": "16 · Expand line items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "16 · Expand line items": {
+      "main": [
+        [
+          {
+            "node": "17 · Append order lines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "18a · Build review row": {
+      "main": [
+        [
+          {
+            "node": "18b · Queue for review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "18b · Queue for review": {
+      "main": [
+        [
+          {
+            "node": "19 · Request correction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "19 · Request correction": {
+      "main": [
+        [
+          {
+            "node": "20 · Merge correction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "20 · Merge correction": {
+      "main": [
+        [
+          {
+            "node": "15a · Build Orders row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "17 · Append order lines": {
+      "main": [
+        [
+          {
+            "node": "21 · Label as processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "21 · Label as processed": {
+      "main": [
+        [
+          {
+            "node": "22a · Build audit row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "22a · Build audit row": {
+      "main": [
+        [
+          {
+            "node": "22b · Append audit log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09b-1 · Re-fetch PDF": {
+      "main": [
+        [
+          {
+            "node": "09b-2 · PDF to JPEG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09b-2 · PDF to JPEG": {
+      "main": [
+        [
+          {
+            "node": "09b-3 · Build vision request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09b-3 · Build vision request": {
+      "main": [
+        [
+          {
+            "node": "09b-4 · Extract order (vision)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09b-4 · Extract order (vision)": {
+      "main": [
+        [
+          {
+            "node": "10 · Normalise & recompute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "22b · Append audit log": {
+      "main": [
+        [
+          {
+            "node": "23a · Came from review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "23a · Came from review?": {
+      "main": [
+        [
+          {
+            "node": "23b · Close review row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "nodeGroups": []
+}
